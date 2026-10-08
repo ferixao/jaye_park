@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Jaye Park - اپ مدیریت پارکینگ
-ساخته شده با Python + Kivy + KivyMD
 """
 
 import os
@@ -10,7 +9,6 @@ import shutil
 from datetime import datetime, timedelta
 from calendar import monthrange
 
-# --- Kivy ---
 os.environ['KIVY_NO_ARGS'] = '1'
 from kivy.config import Config
 Config.set('graphics', 'width', '360')
@@ -18,18 +16,14 @@ Config.set('graphics', 'height', '640')
 
 from kivy.core.text import LabelBase
 from kivy.metrics import dp
-from kivy.clock import Clock
 from kivy.lang import Builder
-from kivy.properties import StringProperty, NumericProperty
 
-# --- ثبت فونت فارسی ---
 LabelBase.register(
     name='Vazir',
     fn_regular='Vazirmatn-Regular.ttf',
     fn_bold='Vazirmatn-Bold.ttf'
 )
 
-# --- KivyMD ---
 from kivymd.app import MDApp
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.screenmanager import MDScreenManager
@@ -41,20 +35,21 @@ from kivymd.uix.list import MDList, TwoLineAvatarIconListItem, IconLeftWidget
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.scrollview import MDScrollView
-from kivymd.uix.selectioncontrol import MDCheckbox
 from kivymd.toast import toast
 from kivymd.uix.menu import MDDropdownMenu
 
 # --- برای نمایش فارسی ---
 try:
     import arabic_reshaper
-    from bidi.algorithm import get_display
     def fa(text):
-        """تبدیل متن فارسی برای نمایش درست در Kivy"""
         if not text:
             return ''
-        reshaped = arabic_reshaper.reshape(str(text))
-        return get_display(reshaped)
+        try:
+            from bidi.algorithm import get_display
+            reshaped = arabic_reshaper.reshape(str(text))
+            return get_display(reshaped)
+        except ImportError:
+            return arabic_reshaper.reshape(str(text))
 except ImportError:
     def fa(text):
         return str(text)
@@ -88,7 +83,6 @@ def init_db():
         key TEXT PRIMARY KEY,
         value TEXT
     )""")
-    # قیمت‌های پیش‌فرض
     defaults = {
         'price_car': '1500000',
         'price_motor': '1000000',
@@ -118,7 +112,6 @@ def set_setting(key, value):
 
 
 def fa_num(n):
-    """تبدیل عدد به فرمت فارسی با کاما"""
     try:
         return f"{int(n):,}"
     except:
@@ -130,7 +123,6 @@ def today_str():
 
 
 def add_months(d, months):
-    """اضافه کردن ماه به تاریخ با در نظر گرفتن ۳۰ یا ۳۱ روز"""
     month = d.month - 1 + months
     year = d.year + month // 12
     month = month % 12 + 1
@@ -144,22 +136,6 @@ def vtype_fa(v):
         'motor': 'موتورسیکلت',
         'heavy': 'وانت / شاسی‌بلند'
     }.get(v, v)
-
-
-# ================== کیوی لِنگ ==================
-KV = '''
-<CardItem>:
-    orientation: "vertical"
-    padding: dp(10)
-    spacing: dp(5)
-    size_hint_y: None
-    height: dp(120)
-    radius: [dp(12)]
-    md_bg_color: 1, 1, 1, 1
-    elevation: 3
-'''
-
-Builder.load_string(KV)
 
 
 # ================== کارت مشتری ==================
@@ -179,7 +155,6 @@ class SubCard(MDCard):
 
         sid, plate, phone, vtype, spot, start, expire, amount = sub_data
 
-        # محاسبه روزهای مانده
         try:
             exp_date = datetime.strptime(expire, "%Y-%m-%d")
             days_left = (exp_date - datetime.now()).days
@@ -196,7 +171,6 @@ class SubCard(MDCard):
             status_color = (0.2, 0.6, 0.2, 1)
             status_text = f"✅ {days_left} روز مانده"
 
-        # خط اول: پلاک + نوع
         line1 = MDBoxLayout(orientation='horizontal', size_hint_y=None, height=dp(30))
         lbl_plate = MDLabel(
             text=fa(f"🚗 {plate}"),
@@ -209,7 +183,6 @@ class SubCard(MDCard):
         line1.add_widget(lbl_plate)
         self.add_widget(line1)
 
-        # خط دوم: نوع + محل
         line2 = MDLabel(
             text=fa(f"{vtype_fa(vtype)} | محل: {spot}"),
             font_name='Vazir',
@@ -221,7 +194,6 @@ class SubCard(MDCard):
         )
         self.add_widget(line2)
 
-        # خط سوم: تاریخ
         line3 = MDLabel(
             text=fa(f"شروع: {start}  |  انقضا: {expire}"),
             font_name='Vazir',
@@ -233,7 +205,6 @@ class SubCard(MDCard):
         )
         self.add_widget(line3)
 
-        # خط چهارم: وضعیت + دکمه‌ها
         line4 = MDBoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40))
         status_lbl = MDLabel(
             text=fa(status_text),
@@ -277,64 +248,50 @@ class MainScreen(MDScreen):
         super().__init__(**kw)
         box = MDBoxLayout(orientation='vertical', padding=dp(15), spacing=dp(10))
 
-        title = MDLabel(
+        box.add_widget(MDLabel(
             text=fa("🅿️ جای پارک"),
-            font_name='Vazir',
-            halign='center',
-            font_style='H4',
-            size_hint_y=None,
-            height=dp(60),
-            theme_text_color='Custom',
-            text_color=(1, 0.5, 0, 1),
-            bold=True,
-        )
-        box.add_widget(title)
-
+            font_name='Vazir', halign='center', font_style='H4',
+            size_hint_y=None, height=dp(60),
+            theme_text_color='Custom', text_color=(1, 0.5, 0, 1), bold=True,
+        ))
         box.add_widget(MDRaisedButton(
-            text=fa("➕ ثبت مشتری جدید"),
-            font_name='Vazir',
+            text=fa("➕ ثبت مشتری جدید"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.5, 0, 1),
             on_release=lambda x: self.goto("add"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("📋 لیست مشتریان"),
-            font_name='Vazir',
+            text=fa("📋 لیست مشتریان"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.6, 0.1, 1),
             on_release=lambda x: self.goto("list"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("⚠️ هشدار انقضا"),
-            font_name='Vazir',
+            text=fa("⚠️ هشدار انقضا"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.7, 0.2, 1),
             on_release=lambda x: self.goto("warn"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("🔍 جستجو"),
-            font_name='Vazir',
+            text=fa("🔍 جستجو"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.6, 0.1, 1),
             on_release=lambda x: self.goto("search"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("📊 گزارش‌ها"),
-            font_name='Vazir',
+            text=fa("📊 گزارش‌ها"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.5, 0, 1),
             on_release=lambda x: self.goto("report"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("⚙️ تنظیمات قیمت‌ها"),
-            font_name='Vazir',
+            text=fa("⚙️ تنظیمات قیمت‌ها"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.6, 0.1, 1),
             on_release=lambda x: self.goto("settings"),
         ))
         box.add_widget(MDRaisedButton(
-            text=fa("💾 پشتیبان‌گیری"),
-            font_name='Vazir',
+            text=fa("💾 پشتیبان‌گیری"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(50),
             md_bg_color=(1, 0.7, 0.2, 1),
             on_release=lambda x: MDApp.get_running_app().backup_db(),
@@ -398,7 +355,6 @@ class AddScreen(MDScreen):
 
     def on_vtype_focus(self, instance, value):
         if value:
-            app = MDApp.get_running_app()
             items = [
                 {"viewclass": "OneLineListItem", "text": fa("خودرو سواری (car)"),
                  "on_release": lambda x="car": self.set_type("car")},
@@ -461,19 +417,15 @@ class ListScreen(MDScreen):
     def __init__(self, **kw):
         super().__init__(**kw)
         box = MDBoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
-
-        title = MDLabel(
+        box.add_widget(MDLabel(
             text=fa("📋 لیست مشتریان"), font_name='Vazir', halign='center',
             font_style='H5', size_hint_y=None, height=dp(50),
             theme_text_color='Custom', text_color=(1, 0.5, 0, 1), bold=True,
-        )
-        box.add_widget(title)
-
+        ))
         self.scroll = MDScrollView()
         self.list = MDList()
         self.scroll.add_widget(self.list)
         box.add_widget(self.scroll)
-
         box.add_widget(MDFlatButton(
             text=fa("بازگشت"), font_name='Vazir',
             size_hint_x=1, size_hint_y=None, height=dp(45),
@@ -641,24 +593,17 @@ class ReportScreen(MDScreen):
 
         c.execute("SELECT COUNT(*) FROM subscribers")
         total = c.fetchone()[0]
-
         c.execute("SELECT COUNT(*) FROM subscribers WHERE vtype='car'")
         cars = c.fetchone()[0]
-
         c.execute("SELECT COUNT(*) FROM subscribers WHERE vtype='motor'")
         motors = c.fetchone()[0]
-
         c.execute("SELECT COUNT(*) FROM subscribers WHERE vtype='heavy'")
         heavies = c.fetchone()[0]
-
         c.execute("SELECT COALESCE(SUM(amount), 0) FROM payments")
         total_income = c.fetchone()[0]
-
         c.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE date LIKE ?",
                   (f"{datetime.now().strftime('%Y-%m')}%",))
         month_income = c.fetchone()[0]
-
-        # فعال و منقضی
         c.execute("SELECT expire FROM subscribers")
         active = 0
         expired = 0
@@ -674,26 +619,19 @@ class ReportScreen(MDScreen):
         con.close()
 
         items = [
-            ("👥", f"کل مشتریان: {fa_num(total)}"),
-            ("🚗", f"خودرو سواری: {fa_num(cars)}"),
-            ("🏍️", f"موتورسیکلت: {fa_num(motors)}"),
-            ("🚐", f"وانت / شاسی‌بلند: {fa_num(heavies)}"),
-            ("✅", f"فعال: {fa_num(active)}"),
-            ("❌", f"منقضی: {fa_num(expired)}"),
-            ("💰", f"درآمد کل: {fa_num(total_income)} تومان"),
-            ("📅", f"درآمد این ماه: {fa_num(month_income)} تومان"),
+            ("account-group", f"کل مشتریان: {fa_num(total)}"),
+            ("car", f"خودرو سواری: {fa_num(cars)}"),
+            ("motorbike", f"موتورسیکلت: {fa_num(motors)}"),
+            ("van-utility", f"وانت / شاسی‌بلند: {fa_num(heavies)}"),
+            ("check-circle", f"فعال: {fa_num(active)}"),
+            ("close-circle", f"منقضی: {fa_num(expired)}"),
+            ("cash", f"درآمد کل: {fa_num(total_income)} تومان"),
+            ("calendar", f"درآمد این ماه: {fa_num(month_income)} تومان"),
         ]
         for icon, text in items:
             item = TwoLineAvatarIconListItem(text=fa(text))
             item.font_name = 'Vazir'
-            item.add_widget(IconLeftWidget(icon=icon.replace("👥", "account-group")
-                                                 .replace("🚗", "car")
-                                                 .replace("🏍️", "motorbike")
-                                                 .replace("🚐", "van-utility")
-                                                 .replace("✅", "check-circle")
-                                                 .replace("❌", "close-circle")
-                                                 .replace("💰", "cash")
-                                                 .replace("📅", "calendar")))
+            item.add_widget(IconLeftWidget(icon=icon))
             self.list.add_widget(item)
 
     def back(self):
@@ -758,15 +696,6 @@ class JayeParkApp(MDApp):
         self.theme_cls.primary_palette = "Orange"
         self.theme_cls.primary_hue = "500"
         self.theme_cls.theme_style = "Light"
-        self.theme_cls.font_styles['H4'] = ['Vazir', 28, False, 0.15]
-        self.theme_cls.font_styles['H5'] = ['Vazir', 22, False, 0.15]
-        self.theme_cls.font_styles['H6'] = ['Vazir', 18, False, 0.15]
-        self.theme_cls.font_styles['Subtitle1'] = ['Vazir', 15, False, 0.15]
-        self.theme_cls.font_styles['Subtitle2'] = ['Vazir', 13, False, 0.15]
-        self.theme_cls.font_styles['Body1'] = ['Vazir', 14, False, 0.15]
-        self.theme_cls.font_styles['Body2'] = ['Vazir', 12, False, 0.15]
-        self.theme_cls.font_styles['Button'] = ['Vazir', 14, True, 0.15]
-        self.theme_cls.font_styles['Caption'] = ['Vazir', 11, False, 0.15]
 
         init_db()
 
@@ -789,8 +718,7 @@ class JayeParkApp(MDApp):
         self.e_plate = MDTextField(text=plate, hint_text=fa("پلاک"), font_name='Vazir')
         self.e_phone = MDTextField(text=phone or "", hint_text=fa("تماس"),
                                     font_name='Vazir', input_filter='int')
-        self.e_vtype = MDTextField(text=vtype, hint_text=fa("نوع"),
-                                    font_name='Vazir')
+        self.e_vtype = MDTextField(text=vtype, hint_text=fa("نوع"), font_name='Vazir')
         self.e_spot = MDTextField(text=spot, hint_text=fa("محل"), font_name='Vazir')
         self.e_expire = MDTextField(text=expire, hint_text=fa("تاریخ انقضا (YYYY-MM-DD)"),
                                      font_name='Vazir')
@@ -841,109 +769,4 @@ class JayeParkApp(MDApp):
         self._renew_sid = sid
         self._renew_vtype = vtype
 
-        price_key = {'car': 'price_car', 'motor': 'price_motor', 'heavy': 'price_heavy'}.get(vtype, 'price_car')
-        default_price = get_setting(price_key)
-
-        content = MDBoxLayout(orientation='vertical', spacing=dp(10),
-                               size_hint_y=None, height=dp(260))
-        self.r_months = MDTextField(text="1", hint_text=fa("تعداد ماه"),
-                                     font_name='Vazir', input_filter='int',
-                                     size_hint_y=None, height=dp(60))
-        self.r_amount = MDTextField(text=str(default_price),
-                                     hint_text=fa("مبلغ پرداختی"),
-                                     font_name='Vazir', input_filter='int',
-                                     size_hint_y=None, height=dp(60))
-        self.r_note = MDTextField(hint_text=fa("توضیح (اختیاری)"),
-                                   font_name='Vazir',
-                                   size_hint_y=None, height=dp(60))
-        content.add_widget(self.r_months)
-        content.add_widget(self.r_amount)
-        content.add_widget(self.r_note)
-
-        self.renew_dialog = MDDialog(
-            title=fa(f"تمدید {plate}"),
-            type="custom",
-            content_cls=content,
-            buttons=[
-                MDFlatButton(text=fa("لغو"), font_name='Vazir',
-                              on_release=lambda x: self.renew_dialog.dismiss()),
-                MDRaisedButton(text=fa("تمدید"), font_name='Vazir',
-                                md_bg_color=(1, 0.5, 0, 1),
-                                on_release=lambda x: self.do_renew()),
-            ],
-        )
-        self.renew_dialog.open()
-
-    def do_renew(self):
-        try:
-            months = int(self.r_months.text or 1)
-            amount = int(self.r_amount.text or 0)
-            note = self.r_note.text or fa("تمدید")
-
-            con = sqlite3.connect(DB)
-            c = con.cursor()
-            c.execute("SELECT expire FROM subscribers WHERE id=?", (self._renew_sid,))
-            row = c.fetchone()
-            old_exp = datetime.strptime(row[0], "%Y-%m-%d") if row else datetime.now()
-            # اگر منقضی شده، از امروز حساب کن؛ وگرنه از تاریخ انقضای قبلی
-            base = max(old_exp, datetime.now())
-            new_exp = add_months(base, months)
-
-            c.execute("UPDATE subscribers SET expire=? WHERE id=?",
-                      (new_exp.strftime("%Y-%m-%d"), self._renew_sid))
-            c.execute("""INSERT INTO payments (sub_id, date, months, amount, note)
-                         VALUES (?, ?, ?, ?, ?)""",
-                      (self._renew_sid, today_str(), months, amount, note))
-            con.commit()
-            con.close()
-
-            self.renew_dialog.dismiss()
-            toast(fa(f"✅ تمدید شد | انقضای جدید: {new_exp.strftime('%Y-%m-%d')}"))
-            self.screen_manager_refresh()
-        except Exception as e:
-            toast(fa(f"خطا: {e}"))
-
-    def confirm_delete(self, sub_data):
-        sid = sub_data[0]
-        plate = sub_data[1]
-        self._del_sid = sid
-
-        self.del_dialog = MDDialog(
-            title=fa("حذف مشتری"),
-            text=fa(f"آیا از حذف {plate} مطمئنی؟"),
-            buttons=[
-                MDFlatButton(text=fa("لغو"), font_name='Vazir',
-                              on_release=lambda x: self.del_dialog.dismiss()),
-                MDRaisedButton(text=fa("حذف"), font_name='Vazir',
-                                md_bg_color=(0.8, 0.2, 0.2, 1),
-                                on_release=lambda x: self.do_delete()),
-            ],
-        )
-        self.del_dialog.open()
-
-    def do_delete(self):
-        con = sqlite3.connect(DB)
-        c = con.cursor()
-        c.execute("DELETE FROM subscribers WHERE id=?", (self._del_sid,))
-        c.execute("DELETE FROM payments WHERE sub_id=?", (self._del_sid,))
-        con.commit()
-        con.close()
-        self.del_dialog.dismiss()
-        toast(fa("🗑 حذف شد"))
-        self.screen_manager_refresh()
-
-    def backup_db(self):
-        try:
-            downloads = "/storage/emulated/0/Download"
-            if not os.path.isdir(downloads):
-                downloads = os.path.expanduser("~")
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            dest = os.path.join(downloads, f"parking_backup_{timestamp}.db")
-            shutil.copy(DB, dest)
-            toast(fa(f"✅ پشتیبان در: {dest}"))
-        except Exception as e:
-            toast(fa(f"خطا: {e}"))
-
-
-if __name__ == "__main__":
-    JayeParkApp().run()
+        price_key = {'car': 'price_car
