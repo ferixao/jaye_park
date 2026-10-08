@@ -1,24 +1,45 @@
-[app]
-title = Jaye Park
-package.name = jayepark
-package.domain = org.jayepark
-source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,ttf,db
-version = 1.0.0
-requirements = python3,kivy==2.3.0,kivymd==1.0.2,pillow,arabic-reshaper,python-bidi
-orientation = portrait
-fullscreen = 0
-android.api = 31
-android.minapi = 21
-android.ndk = 25b
-android.archs = arm64-v8a, armeabi-v7a
-android.allow_backup = True
-android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
-android.presplash_color = #FF8800
-icon.filename = %(source.dir)s/icon.png
-presplash.filename = %(source.dir)s/splash.png
-android.logcat_filters = *:S python:D
-p4a.bootstrap = sdl2
-p4a.local_recipes = 
-p4a.source_dir = 
-p4a.branch = master
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git zip unzip openjdk-17-jdk \
+          python3-pip autoconf libtool pkg-config \
+          zlib1g-dev libncurses5-dev libncursesw5-dev \
+          cmake libffi-dev libssl-dev \
+          automake
+
+    - name: Install buildozer and cython
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython==0.29.36
+
+    - name: Build APK with Buildozer
+      run: |
+        yes | buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: jaye-park-apk
+        path: bin/*.apk
+        if-no-files-found: warn
