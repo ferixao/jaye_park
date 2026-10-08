@@ -769,4 +769,108 @@ class JayeParkApp(MDApp):
         self._renew_sid = sid
         self._renew_vtype = vtype
 
-        price_key = {'car': 'price_car
+        price_key = {'car': 'price_car', 'motor': 'price_motor', 'heavy': 'price_heavy'}.get(vtype, 'price_car')
+        default_price = get_setting(price_key)
+
+        content = MDBoxLayout(orientation='vertical', spacing=dp(10),
+                               size_hint_y=None, height=dp(260))
+        self.r_months = MDTextField(text="1", hint_text=fa("تعداد ماه"),
+                                     font_name='Vazir', input_filter='int',
+                                     size_hint_y=None, height=dp(60))
+        self.r_amount = MDTextField(text=str(default_price),
+                                     hint_text=fa("مبلغ پرداختی"),
+                                     font_name='Vazir', input_filter='int',
+                                     size_hint_y=None, height=dp(60))
+        self.r_note = MDTextField(hint_text=fa("توضیح (اختیاری)"),
+                                   font_name='Vazir',
+                                   size_hint_y=None, height=dp(60))
+        content.add_widget(self.r_months)
+        content.add_widget(self.r_amount)
+        content.add_widget(self.r_note)
+
+        self.renew_dialog = MDDialog(
+            title=fa(f"تمدید {plate}"),
+            type="custom",
+            content_cls=content,
+            buttons=[
+                MDFlatButton(text=fa("لغو"), font_name='Vazir',
+                              on_release=lambda x: self.renew_dialog.dismiss()),
+                MDRaisedButton(text=fa("تمدید"), font_name='Vazir',
+                                md_bg_color=(1, 0.5, 0, 1),
+                                on_release=lambda x: self.do_renew()),
+            ],
+        )
+        self.renew_dialog.open()
+
+    def do_renew(self):
+        try:
+            months = int(self.r_months.text or 1)
+            amount = int(self.r_amount.text or 0)
+            note = self.r_note.text or fa("تمدید")
+
+            con = sqlite3.connect(DB)
+            c = con.cursor()
+            c.execute("SELECT expire FROM subscribers WHERE id=?", (self._renew_sid,))
+            row = c.fetchone()
+            old_exp = datetime.strptime(row[0], "%Y-%m-%d") if row else datetime.now()
+            base = max(old_exp, datetime.now())
+            new_exp = add_months(base, months)
+
+            c.execute("UPDATE subscribers SET expire=? WHERE id=?",
+                      (new_exp.strftime("%Y-%m-%d"), self._renew_sid))
+            c.execute("""INSERT INTO payments (sub_id, date, months, amount, note)
+                         VALUES (?, ?, ?, ?, ?)""",
+                      (self._renew_sid, today_str(), months, amount, note))
+            con.commit()
+            con.close()
+
+            self.renew_dialog.dismiss()
+            toast(fa(f"✅ تمدید شد | انقضای جدید: {new_exp.strftime('%Y-%m-%d')}"))
+            self.screen_manager_refresh()
+        except Exception as e:
+            toast(fa(f"خطا: {e}"))
+
+    def confirm_delete(self, sub_data):
+        sid = sub_data[0]
+        plate = sub_data[1]
+        self._del_sid = sid
+
+        self.del_dialog = MDDialog(
+            title=fa("حذف مشتری"),
+            text=fa(f"آیا از حذف {plate} مطمئنی؟"),
+            buttons=[
+                MDFlatButton(text=fa("لغو"), font_name='Vazir',
+                              on_release=lambda x: self.del_dialog.dismiss()),
+                MDRaisedButton(text=fa("حذف"), font_name='Vazir',
+                                md_bg_color=(0.8, 0.2, 0.2, 1),
+                                on_release=lambda x: self.do_delete()),
+            ],
+        )
+        self.del_dialog.open()
+
+    def do_delete(self):
+        con = sqlite3.connect(DB)
+        c = con.cursor()
+        c.execute("DELETE FROM subscribers WHERE id=?", (self._del_sid,))
+        c.execute("DELETE FROM payments WHERE sub_id=?", (self._del_sid,))
+        con.commit()
+        con.close()
+        self.del_dialog.dismiss()
+        toast(fa("🗑 حذف شد"))
+        self.screen_manager_refresh()
+
+    def backup_db(self):
+        try:
+            downloads = "/storage/emulated/0/Download"
+            if not os.path.isdir(downloads):
+                downloads = os.path.expanduser("~")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            dest = os.path.join(downloads, f"parking_backup_{timestamp}.db")
+            shutil.copy(DB, dest)
+            toast(fa(f"✅ پشتیبان در: {dest}"))
+        except Exception as e:
+            toast(fa(f"خطا: {e}"))
+
+
+if __name__ == "__main__":
+    JayeParkApp().run()
